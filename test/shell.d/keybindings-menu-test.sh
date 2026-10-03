@@ -42,12 +42,14 @@ stub_hyprctl() {
   chmod +x "$stub_bin/hyprctl"
 }
 
-# The keymap describe-key resolves keycodes through: kb_layout, kb_variant and
-# kb_options as Hyprland reports them.
+# The keymap describe-key resolves keycodes through: kb_layout, kb_variant,
+# kb_options, kb_model and kb_rules as Hyprland reports them.
 stub_keymap() {
   printf '%s' "$1" >"$tmpdir/kb_layout"
   printf '%s' "${2-}" >"$tmpdir/kb_variant"
   printf '%s' "${3-}" >"$tmpdir/kb_options"
+  printf '%s' "${4-}" >"$tmpdir/kb_model"
+  printf '%s' "${5-}" >"$tmpdir/kb_rules"
 }
 stub_keymap us
 
@@ -296,6 +298,24 @@ stub_keymap us "" "ctrl:swapcaps"
 [[ $(describe 133 37 24) == "SUPER + Q → Not bound" ]] ||
   fail "a key remapped away from a modifier no longer counts as one" "$(describe 133 37 24)"
 pass "describe key follows remapped modifiers"
+
+# Hyprland builds the keymap it matches binds against from the model and rules
+# too, and reports an unset string option as [[EMPTY]].
+real_xkbcli=$(command -v xkbcli)
+cat >"$stub_bin/xkbcli" <<STUB
+#!/bin/bash
+printf '%s\n' "\$*" >>"$tmpdir/xkbcli-args"
+exec "$real_xkbcli" "\$@"
+STUB
+chmod +x "$stub_bin/xkbcli"
+
+stub_keymap se "[[EMPTY]]" "ctrl:swapcaps" pc104 evdev
+rm -f "$tmpdir/xkbcli-args"
+describe 133 65 >/dev/null
+grep -qx "compile-keymap --layout se --options ctrl:swapcaps --model pc104 --rules evdev" "$tmpdir/xkbcli-args" ||
+  fail "describe key builds the keymap the way Hyprland does" "$(cat "$tmpdir/xkbcli-args")"
+pass "describe key builds the keymap from the layout, options, model and rules"
+rm "$stub_bin/xkbcli"
 
 # In the menu, ? closes it and starts describe mode through the Lua function the
 # Hyprland config defines, while Enter still runs the row. The stub menu answers

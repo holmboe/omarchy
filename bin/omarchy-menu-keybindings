@@ -664,20 +664,34 @@ dispatch_binding() {
 
 # Print "<xkb keycode> <level 1 keysym>" for the keymap Hyprland matches
 # keysym bindings against: the first entry of kb_layout and kb_variant, with
-# kb_options applied, so a remapped key (ctrl:swapcaps) counts as what it acts as.
+# kb_options, kb_model and kb_rules applied as Hyprland builds its keymap, so a
+# remapped key (ctrl:swapcaps) counts as what it acts as.
+# An input: string option as Hyprland reads it, where [[EMPTY]] means unset.
+keymap_option() {
+  local value
+
+  value=$(hyprctl getoption "input:$1" | awk -F': ' '/^str:/ { print $2 }')
+  [[ $value == "[[EMPTY]]" ]] && value=""
+  printf '%s\n' "$value"
+}
+
 binding_keymap_symbols() {
-  local layout variant options
+  local layout variant options model rules
   local args=()
 
-  layout=$(hyprctl getoption input:kb_layout | awk -F': ' '/^str:/ { print $2 }')
-  variant=$(hyprctl getoption input:kb_variant | awk -F': ' '/^str:/ { print $2 }')
-  options=$(hyprctl getoption input:kb_options | awk -F': ' '/^str:/ { print $2 }')
+  layout=$(keymap_option kb_layout)
+  variant=$(keymap_option kb_variant)
+  options=$(keymap_option kb_options)
+  model=$(keymap_option kb_model)
+  rules=$(keymap_option kb_rules)
 
   layout=${layout%%,*}
   variant=${variant%%,*}
   [[ -n $layout ]] && args+=(--layout "$layout")
   [[ -n $variant ]] && args+=(--variant "$variant")
   [[ -n $options ]] && args+=(--options "$options")
+  [[ -n $model ]] && args+=(--model "$model")
+  [[ -n $rules ]] && args+=(--rules "$rules")
 
   xkbcli compile-keymap "${args[@]}" </dev/null | awk '
     /xkb_keycodes/ { section = "codes"; next }
