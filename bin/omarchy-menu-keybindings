@@ -782,7 +782,7 @@ describe_key() {
     if [[ $print == "true" ]]; then
       printf '%s → %s\n' "$chord" "${actions:-Not bound}"
     else
-      describe_notify "$chord" "${actions:-Not bound in Hyprland}"
+      describe_notify -t 8000 "$chord" "${actions:-Not bound in Hyprland}"
     fi
   fi
 }
