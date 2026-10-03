@@ -6,6 +6,12 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 
 require_command lua
 
+# The helpers read HOME, so give them one the test owns and cleans up.
+tmpdir=$(mktemp -d) && [[ -n $tmpdir && -d $tmpdir ]] ||
+  fail "the test gets a temporary directory to load the bindings in"
+trap 'rm -rf "$tmpdir"' EXIT
+mkdir -p "$tmpdir/home"
+
 # Drive o.describe_key() from default/hypr/bindings/utilities.lua against a stub
 # hl that plays key events into it, and print what it does, one line per call:
 # the commands it runs, the submaps it enters, and whether it is still listening
@@ -13,7 +19,7 @@ require_command lua
 # then the events: "+code" presses, "-code" releases, "escape" presses ESCAPE in
 # the submap, "timeout" fires the timer.
 describe_trace() {
-  HOME="$(mktemp -d)" OMARCHY_PATH="$ROOT" lua - "$@" <<'LUA'
+  HOME="$tmpdir/home" OMARCHY_PATH="$ROOT" lua - "$@" <<'LUA'
 package.path = os.getenv("OMARCHY_PATH") .. "/?.lua;" .. package.path
 
 local held, listeners, timers, submaps, current = {}, {}, {}, {}, nil
@@ -170,7 +176,7 @@ pass "escape and the timeout cancel describe mode and leave the submap"
 
 # Starting again while describe mode is up starts over rather than stacking a
 # second listener and timer on the first.
-trace=$(HOME="$(mktemp -d)" OMARCHY_PATH="$ROOT" lua <<'LUA'
+trace=$(HOME="$tmpdir/home" OMARCHY_PATH="$ROOT" lua <<'LUA'
 package.path = os.getenv("OMARCHY_PATH") .. "/?.lua;" .. package.path
 local active = 0
 hl = setmetatable({
